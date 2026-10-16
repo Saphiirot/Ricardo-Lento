@@ -33,6 +33,12 @@ Se conseguir um SVG (por exemplo, vetorizando o PNG no Illustrator ou em vectori
 
 > Melhora esta fotografia real de um grupo de corredores e ciclistas **sem alterar as pessoas, os rostos nem as posições**. Aumenta a resolução para 2400 px de largura, remove o ruído, recupera o detalhe do céu e equilibra o contraste, com cores naturais e vivas, como numa fotografia de reportagem desportiva. Não acrescentes nem removas pessoas, nem coloques texto.
 
+## 05 — O Ricardo a tratar (`05-ricardo-a-tratar.jpg`)
+
+> Melhora esta fotografia real a preto e branco de um terapeuta a tratar um paciente **sem alterar as pessoas, os rostos, a pose nem o espaço**. Aumenta a resolução para 2000 px de largura, remove o ruído e o grão, aumenta a nitidez e o contraste de forma natural, mantendo o preto e branco elegante, como numa fotografia editorial. Não acrescentes texto nem elementos.
+
+Guardar como: `site/assets/img/ricardo-a-tratar.jpg`.
+
 ---
 
 ### Nota importante

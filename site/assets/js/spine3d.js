@@ -475,7 +475,9 @@ async function initHome(canvas) {
   scene.add(pGroup);
 
   const anchors = [...document.querySelectorAll('[data-3d]')].map((el) => ({ el, key: el.dataset['3d'] }));
-  const huds = [...document.querySelectorAll('[data-hud]')].map((el) => ({ el, i: +el.dataset.hud }));
+  const huds = [...document.querySelectorAll('[data-hud]')].map((el) => ({
+    el, i: +el.dataset.hud, region: el.dataset.hudRegion || null, left: el.classList.contains('left'), o: 0,
+  }));
   const mouse = pointer();
 
   const table = () => (mqMobile.matches ? PRESETS.mobile : PRESETS.desktop);
@@ -505,6 +507,11 @@ async function initHome(canvas) {
         o.region = t < 0.5 ? a.region : b.region;
         o.focus = t < 0.5 ? a.focus : b.focus;
         o.focusA = a.focus; o.focusB = b.focus; o.t = t;
+        // ao atravessar o ecrã, a coluna recua para o fundo e fica mais discreta
+        const dip = Math.sin(Math.PI * t) * Math.min(1, Math.abs(b.x - a.x) / 4);
+        o.camZ += 11 * dip;
+        o.opacity *= 1 - 0.6 * dip;
+        o.hud *= 1 - dip;
         return o;
       }
     }
@@ -547,9 +554,10 @@ async function initHome(canvas) {
       const on = R && v.i >= R[0] && v.i <= R[1] ? 1 : 0;
       v.h = lerp(v.h, on, 1 - Math.exp(-dt * 6));
       const dim = regionOn * (1 - v.h);
-      v.mat.color.copy(boneC).lerp(dimC, dim * 0.8).lerp(glowC, v.h * regionOn * 0.35);
-      v.mat.emissiveIntensity = v.h * (region === 'all' ? 0.28 : 0.62) * (0.85 + 0.15 * Math.sin(time * 3 + v.i * 0.5));
-      v.mat.opacity = cur.opacity * (1 - smooth(clamp(cur.morph * 2.4)));
+      v.dim = dim;
+      v.mat.color.copy(boneC).lerp(dimC, dim * 0.9).lerp(glowC, v.h * regionOn * 0.45);
+      v.mat.emissiveIntensity = v.h * (region === 'all' ? 0.28 : 0.85) * (0.85 + 0.15 * Math.sin(time * 3 + v.i * 0.5));
+      v.mat.opacity = cur.opacity * (1 - smooth(clamp(cur.morph * 2.4))) * (1 - 0.72 * dim);
       v.mesh.visible = v.mat.opacity > 0.01;
     }
     for (const dc of spine.discs) {
@@ -558,7 +566,8 @@ async function initHome(canvas) {
       dc.mat.emissive.copy(cyan).lerp(warm, tens);
       dc.mat.color.set(0x8fd9ff).lerp(warm, tens * 0.8);
       dc.mat.emissiveIntensity = 0.4 + tens * (0.8 + pulse * 1.2);
-      dc.mat.opacity = 0.94 * cur.opacity * (1 - smooth(clamp(cur.morph * 2.4)));
+      const ddim = Math.min(spine.verts[dc.i].dim ?? 0, spine.verts[dc.i + 1].dim ?? 0);
+      dc.mat.opacity = 0.94 * cur.opacity * (1 - smooth(clamp(cur.morph * 2.4))) * (1 - 0.75 * ddim);
       dc.mesh.visible = dc.mat.opacity > 0.01;
     }
 
@@ -598,8 +607,13 @@ async function initHome(canvas) {
         const v = spine.verts[h.i];
         v.mesh.getWorldPosition(v3).project(camera);
         const x = (v3.x * 0.5 + 0.5) * st.w, y = (-v3.y * 0.5 + 0.5) * st.h;
-        h.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
-        h.el.style.opacity = (cur.hud ** 3 * cur.opacity).toFixed(3);
+        h.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(${h.left ? '-100%' : '0'}, -50%)`;
+        if (h.region) {
+          h.o = lerp(h.o, region === h.region ? 1 : 0, 1 - Math.exp(-dt * 6));
+          h.el.style.opacity = (h.o * cur.opacity).toFixed(3);
+        } else {
+          h.el.style.opacity = (cur.hud ** 3 * cur.opacity).toFixed(3);
+        }
       }
     }
     renderer.render(scene, camera);

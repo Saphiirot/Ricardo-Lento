@@ -66,8 +66,6 @@
   const onScroll = () => {
     const y = window.scrollY;
     header?.classList.toggle('is-scrolled', y > 30);
-    if (!document.body.classList.contains('menu-open')) header?.classList.toggle('is-hidden', y > 400 && y > lastY + 2);
-    if (y < lastY - 2) header?.classList.remove('is-hidden');
     mcta?.classList.toggle('is-visible', y > innerHeight * 0.7);
     lastY = y;
   };
@@ -209,7 +207,13 @@
       trigger: map, start: 'top top', end: 'bottom bottom',
       onUpdate: (st) => {
         const p = st.progress * steps.length;
-        const i = Math.min(steps.length - 1, Math.floor(p));
+        // mesma regra do motor 3D: a etapa ativa é a mais próxima do centro do ecrã
+        let i = 0, best = Infinity;
+        steps.forEach((el, k) => {
+          const r = el.getBoundingClientRect();
+          const d = Math.abs(r.top + r.height / 2 - innerHeight / 2);
+          if (d < best) { best = d; i = k; }
+        });
         setActive(i);
         bars.forEach((b, k) => gsap.set(b, { scaleX: Math.min(1, Math.max(0, p - k)) }));
       },
@@ -229,7 +233,7 @@
       cards.forEach((c) => {
         const r = c.getBoundingClientRect();
         const d = (r.left + r.width / 2 - cx) / innerWidth;
-        gsap.set(c, { rotateY: d * -28, z: -Math.abs(d) * 160, opacity: 1 - Math.min(0.45, Math.abs(d) * 0.5) });
+        gsap.set(c, { transformPerspective: 1400, rotateY: d * -16, z: -Math.abs(d) * 70, opacity: 1 - Math.min(0.4, Math.abs(d) * 0.45) });
       });
     };
     const mm = gsap.matchMedia();
