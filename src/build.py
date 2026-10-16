@@ -12,6 +12,7 @@ Marcadores disponíveis: {{icon:nome}}, {{wa}} (link WhatsApp padrão),
 {{wa:mensagem}} (link WhatsApp com mensagem própria).
 Uso: python3 src/build.py
 """
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -56,6 +57,11 @@ NAV = [
     ('desporto', 'desporto.html', 'Desporto'),
     ('sobre', 'sobre.html', 'Sobre &amp; Contacto'),
 ]
+
+
+def ver(rel):
+    """Versão curta do ficheiro, para o browser descarregar sempre a última alteração."""
+    return hashlib.md5((OUT / rel).read_bytes()).hexdigest()[:8]
 
 
 def wa(msg=WA_DEFAULT):
@@ -113,7 +119,7 @@ def head(meta):
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/style.css?v={ver('assets/css/style.css')}">
 {importmap}
 <script type="application/ld+json">{json.dumps(ld, ensure_ascii=False)}</script>
 </head>
@@ -159,9 +165,9 @@ def footer(stage):
     scripts = """<script src="vendor/gsap.min.js"></script>
 <script src="vendor/ScrollTrigger.min.js"></script>
 <script src="vendor/lenis.min.js"></script>
-<script src="assets/js/main.js"></script>"""
+<script src="assets/js/main.js?v=""" + ver('assets/js/main.js') + """"></script>"""
     if stage:
-        scripts += '\n<script type="module" src="assets/js/spine3d.js"></script>'
+        scripts += f'\n<script type="module" src="assets/js/spine3d.js?v={ver("assets/js/spine3d.js")}"></script>'
     nav = '\n'.join(f'<li><a href="{href}">{label}</a></li>' for _, href, label in NAV)
     return f"""<footer class="site-footer">
   <div class="wrap">
