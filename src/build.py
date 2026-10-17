@@ -133,8 +133,8 @@ def header(active):
         for key, href, label in NAV
     )
     mlinks = '\n'.join(
-        f'<a class="big" href="{href}">{label.replace("&amp; Contacto", "&amp; <em>Contacto</em>") if key == "sobre" else label}</a>'
-        for key, href, label in NAV
+        f'<a class="big" href="{href}"{current if key == active else ""}><span>0{i}</span>{label}</a>'
+        for i, (key, href, label) in enumerate(NAV, 1)
     )
     veil = ''.join(f'<i style="--i:{i}"></i>' for i in range(8))
     return f"""<div class="page-veil" aria-hidden="true"><div class="veil-spine">{veil}</div></div>

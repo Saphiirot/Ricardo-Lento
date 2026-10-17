@@ -403,6 +403,25 @@ function loop(canvas, frame, { alwaysVisible = false } = {}) {
   requestAnimationFrame(tick);
 }
 
+/* Telemóvel: espaço livre entre o header e o início do texto do hero, em unidades 3D.
+   Calculado com a página no topo, para o modelo nunca invadir o header nem o texto. */
+function mobileBand(canvas, fovDeg, dist) {
+  const cr = canvas.getBoundingClientRect();
+  const nav = document.querySelector('.site-header .nav');
+  const copy = (canvas.closest('section') || document).querySelector('.hero-copy');
+  if (!copy || !cr.height) return null;
+  const pageTop = window.scrollY;
+  const headerBottom = (nav ? nav.getBoundingClientRect().bottom : 80) + 12;
+  const cRect = copy.getBoundingClientRect();
+  const copyTop = cRect.top + parseFloat(getComputedStyle(copy).paddingTop) - 14;
+  // posições relativas ao canvas, como se a página estivesse no topo
+  const canvasTop = cr.top + (getComputedStyle(canvas).position === 'fixed' ? 0 : pageTop);
+  const top = headerBottom - canvasTop;
+  const bottom = copyTop + pageTop - canvasTop;
+  const wpp = (2 * Math.tan((fovDeg * Math.PI) / 360) * dist) / cr.height;
+  return { cy: (cr.height / 2 - (top + bottom) / 2) * wpp, h: Math.max(1, bottom - top) * wpp, wpp };
+}
+
 function pointer() {
   const m = { x: 0, y: 0, sx: 0, sy: 0, active: false };
   window.addEventListener('pointermove', (e) => {
@@ -444,8 +463,8 @@ PRESETS.mobile = Object.fromEntries(
   Object.entries(PRESETS.desktop).map(([k, v]) => {
     const m = { ...v, x: 0 };
     if (k === 'hero') Object.assign(m, { y: 2.35, scale: 0.46, opacity: 0.95, rotY: -0.7 });
-    if (k === 'align') Object.assign(m, { x: 1.6, y: 0.4, scale: 0.5, opacity: 0.22 });
-    if (k.startsWith('map')) Object.assign(m, { scale: 0.62, camZ: k === 'map-desporto' ? 17 : 12, camY: -2.9 });
+    if (k === 'align') Object.assign(m, { x: 0, y: 6, scale: 0.46, opacity: 0, camZ: 17 });
+    if (k.startsWith('map')) Object.assign(m, { scale: 0.62, camZ: k === 'map-desporto' ? 18 : 12, camY: k === 'map-desporto' ? -2.6 : -1.55 });
     if (k === 'logo') Object.assign(m, { y: 2.75, scale: 0.52, camZ: 17 });
     return [k, m];
   }),
@@ -481,6 +500,19 @@ async function initHome(canvas) {
   const mouse = pointer();
 
   const table = () => (mqMobile.matches ? PRESETS.mobile : PRESETS.desktop);
+  let band = null;
+  const alignEl = document.querySelector('[data-3d="align"]');
+  const fitBand = () => {
+    if (!mqMobile.matches || window.scrollY > 5) return;
+    band = mobileBand(canvas, 35, 17);
+    if (!band) return;
+    PRESETS.mobile.hero.scale = Math.min(0.5, (band.h * 0.92) / 10.9);
+    PRESETS.mobile.hero.y = band.cy;
+  };
+  fitBand();
+  window.addEventListener('resize', fitBand);
+  window.addEventListener('load', fitBand);
+  if (document.fonts) document.fonts.ready.then(fitBand);
   const cur = { ...table().hero };
   let region = null;
 
@@ -503,7 +535,9 @@ async function initHome(canvas) {
         t = smooth(clamp((t - 0.18) / 0.64));
         const a = pts[i].p, b = pts[i + 1].p;
         const o = {};
-        for (const k of NUM_KEYS) o[k] = lerp(a[k], b[k], t);
+        // no telemóvel a coluna só reaparece quando a secção seguinte já ocupa o ecrã
+        const tOp = mqMobile.matches && b.opacity > a.opacity ? t * t * t : t;
+        for (const k of NUM_KEYS) o[k] = lerp(a[k], b[k], k === 'opacity' ? tOp : t);
         o.region = t < 0.5 ? a.region : b.region;
         o.focus = t < 0.5 ? a.focus : b.focus;
         o.focusA = a.focus; o.focusB = b.focus; o.t = t;
@@ -531,6 +565,13 @@ async function initHome(canvas) {
 
   loop(canvas, (dt, time) => {
     const tg = target();
+    // telemóvel: no hero a coluna sobe com a página (como se fizesse parte dela)
+    // até à secção "abordagem" (onde já está invisível); depois volta à posição normal
+    let follow = 0;
+    if (mqMobile.matches && band && alignEl) {
+      const r = alignEl.getBoundingClientRect();
+      if (r.top + r.height / 2 > innerHeight / 2) follow = window.scrollY * band.wpp;
+    }
     const damp = 1 - Math.exp(-dt * 4.2);
     for (const k of NUM_KEYS) cur[k] = lerp(cur[k], tg[k], damp);
     region = tg.region;
@@ -575,13 +616,13 @@ async function initHome(canvas) {
     flow.material.opacity = 0.85 * clamp(cur.flow) * (1 - mis) * cur.opacity * (1 - clamp(cur.morph * 3));
 
     // transformação da coluna
-    root.position.set(cur.x, cur.y, 0);
+    root.position.set(cur.x, cur.y + follow, 0);
     root.scale.setScalar(cur.scale);
     root.rotation.set(cur.rotX + mouse.sy * 0.06, cur.rotY + spinAngle + mouse.sx * 0.12, 0);
 
     // partículas: herdam a pose da coluna e evoluem para o logótipo de frente
     const m = smooth(clamp(cur.morph));
-    pGroup.position.set(cur.x, cur.y, 0);
+    pGroup.position.set(cur.x, cur.y + follow, 0);
     pGroup.scale.setScalar(mqMobile.matches ? cur.scale : lerp(cur.scale, 1, m));
     pQ.setFromEuler(root.rotation);
     pGroup.quaternion.copy(pQ).slerp(I.set(0, 0, 0, 1).setFromEuler(new THREE.Euler(mouse.sy * 0.08 * m, mouse.sx * 0.14 * m, 0)), m);
@@ -603,11 +644,15 @@ async function initHome(canvas) {
     // HUD: etiquetas presas às vértebras
     if (huds.length) {
       root.updateMatrixWorld();
+      const mob = mqMobile.matches;
       for (const h of huds) {
+        const isLeft = mob ? h.el.dataset.m === 'left' : h.left;
+        if (h.el.classList.contains('left') !== isLeft) h.el.classList.toggle('left', isLeft);
+        h.leftNow = isLeft;
         const v = spine.verts[h.i];
         v.mesh.getWorldPosition(v3).project(camera);
         const x = (v3.x * 0.5 + 0.5) * st.w, y = (-v3.y * 0.5 + 0.5) * st.h;
-        h.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(${h.left ? '-100%' : '0'}, -50%)`;
+        h.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(${h.leftNow ? '-100%' : '0'}, -50%)`;
         if (h.region) {
           h.o = lerp(h.o, region === h.region ? 1 : 0, 1 - Math.exp(-dt * 6));
           h.el.style.opacity = (h.o * cur.opacity).toFixed(3);
@@ -659,6 +704,11 @@ function initVertebra(canvas) {
   const mouse = pointer();
   const hero = canvas.closest('section') || document.body;
   let ex = 0;
+  let band = null;
+  const fitBand = () => { if (mqMobile.matches && window.scrollY < 5) band = mobileBand(canvas, 32, 13); };
+  fitBand();
+  window.addEventListener('resize', fitBand);
+  window.addEventListener('load', fitBand);
   loop(canvas, (dt, time) => {
     const r = hero.getBoundingClientRect();
     const prog = clamp(-r.top / Math.max(1, r.height * 0.8));
@@ -679,8 +729,8 @@ function initVertebra(canvas) {
     mouse.sx = lerp(mouse.sx, mouse.x, 0.05);
     mouse.sy = lerp(mouse.sy, mouse.y, 0.05);
     const mobile = mqMobile.matches;
-    group.position.set(mobile ? 0 : 2.6, mobile ? 2.55 : 0, 0);
-    group.scale.setScalar(mobile ? 0.4 : 1);
+    group.position.set(mobile ? 0 : 2.6, mobile && band ? band.cy : 0, 0);
+    group.scale.setScalar(mobile && band ? Math.min(0.62, (band.h * 0.8) / 5.2) : mobile ? 0.4 : 1);
     group.rotation.set(0.35 + mouse.sy * 0.25, (reduced ? 0.6 : time * 0.25) + mouse.sx * 0.6, 0.12);
     camera.position.set(0, 0, 13);
     camera.lookAt(0, 0, 0);
@@ -717,6 +767,11 @@ function initFlex(canvas) {
   const mouse = pointer();
   const hero = canvas.closest('section') || document.body;
   let rotY = -1.2;
+  let band = null;
+  const fitBand = () => { if (mqMobile.matches && window.scrollY < 5) band = mobileBand(canvas, 35, 17); };
+  fitBand();
+  window.addEventListener('resize', fitBand);
+  window.addEventListener('load', fitBand);
   loop(canvas, (dt, time) => {
     const r = hero.getBoundingClientRect();
     const prog = clamp(-r.top / Math.max(1, r.height * 0.9));
@@ -749,8 +804,8 @@ function initFlex(canvas) {
     mouse.sx = lerp(mouse.sx, mouse.x, 0.05);
     rotY = lerp(rotY, -1.25 + prog * 1.0 + mouse.sx * 0.25, 1 - Math.exp(-dt * 3));
     const mobile = mqMobile.matches;
-    root.position.set(mobile ? 0 : 3.3, mobile ? 2.45 : 0, 0);
-    root.scale.setScalar(mobile ? 0.4 : 0.98);
+    root.position.set(mobile ? 0 : 3.3, mobile && band ? band.cy : 0, 0);
+    root.scale.setScalar(mobile && band ? Math.min(0.5, (band.h * 0.9) / 10.9) : mobile ? 0.4 : 0.98);
     root.rotation.set(0.05, rotY, 0);
     camera.position.set(0, 0, 17);
     camera.lookAt(0, 0, 0);
@@ -781,6 +836,11 @@ async function initLogo(canvas) {
   const v3 = new THREE.Vector3();
   const t0 = performance.now() / 1000;
   const hero = canvas.closest('section') || document.body;
+  let band = null;
+  const fitBand = () => { if (mqMobile.matches && window.scrollY < 5) band = mobileBand(canvas, 35, 16); };
+  fitBand();
+  window.addEventListener('resize', fitBand);
+  window.addEventListener('load', fitBand);
   loop(canvas, (dt, time) => {
     const r = hero.getBoundingClientRect();
     const prog = clamp(-r.top / Math.max(1, r.height));
@@ -793,8 +853,8 @@ async function initLogo(canvas) {
     mouse.sx = lerp(mouse.sx, mouse.x, 0.06);
     mouse.sy = lerp(mouse.sy, mouse.y, 0.06);
     const mobile = mqMobile.matches;
-    g.position.set(mobile ? 0 : 3.2, mobile ? 2.7 : 0, 0);
-    g.scale.setScalar(mobile ? 0.5 : 1);
+    g.position.set(mobile ? 0 : 3.2, mobile && band ? band.cy : 0, 0);
+    g.scale.setScalar(mobile && band ? Math.min(0.6, (band.h * 0.9) / 7.6) : mobile ? 0.5 : 1);
     g.rotation.set(mouse.sy * 0.12, mouse.sx * 0.22, 0);
     v3.set(mouse.sx, mouse.sy, 0.5).unproject(camera).sub(camera.position).normalize();
     u.uMouse.value.copy(camera.position).addScaledVector(v3, -camera.position.z / v3.z);
