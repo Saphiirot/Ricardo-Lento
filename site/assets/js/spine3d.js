@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Ricardo Lento — motor 3D
+   Vérto (projeto conceptual ConectaWeb) — motor 3D
    Coluna vertebral procedural (Three.js) com quatro modos:
      home      → coluna desalinhada que se alinha com o scroll, mapa da dor e
                  morph final em partículas que formam o logótipo
@@ -201,7 +201,7 @@ function sampleSpineSurface(spine, n) {
 
 async function sampleLogo(n, size = 7.2) {
   const img = new Image();
-  img.src = 'assets/brand/logo-rl-dark.png';
+  img.src = 'assets/brand/logo-dark.png';
   await img.decode();
   const R = 380;
   const c = document.createElement('canvas');

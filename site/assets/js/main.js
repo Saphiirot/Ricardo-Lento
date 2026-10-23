@@ -1,11 +1,11 @@
-/* Ricardo Lento — interações partilhadas por todas as páginas */
+/* Vérto (projeto conceptual ConectaWeb) — interações partilhadas por todas as páginas */
 (() => {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const mobile = () => matchMedia('(max-width: 820px)').matches;
   const $ = (s, c = document) => c.querySelector(s);
   const $$ = (s, c = document) => [...c.querySelectorAll(s)];
-  const WA = '351968313194';
-  const waLink = (msg) => `https://wa.me/${WA}?text=${encodeURIComponent(msg)}`;
+  // sem número: o WhatsApp abre com a mensagem pronta e não aponta para nenhum contacto real
+  const waLink = (msg) => `https://wa.me/?text=${encodeURIComponent(msg)}`;
   const hasGSAP = typeof window.gsap !== 'undefined';
   if (hasGSAP) gsap.registerPlugin(ScrollTrigger);
   // experiência narrativa: cada visita começa no topo (exceto links com âncora)
@@ -308,7 +308,7 @@
       const motivo = fd.get('motivo');
       const periodo = fd.get('periodo');
       const nota = (fd.get('nota') || '').toString().trim();
-      let msg = `Olá Ricardo${nome ? `, sou ${nome}` : ''}! `;
+      let msg = `Olá${nome ? `, sou ${nome}` : ''}! `;
       msg += motivo === 'Outro' ? 'Gostaria de marcar uma consulta.' : `Gostaria de marcar uma consulta — motivo: ${motivo.toLowerCase()}.`;
       if (periodo && periodo !== 'Indiferente') msg += `\nPreferência de horário: ${periodo.toLowerCase()}.`;
       if (nota) msg += `\n${nota}`;
